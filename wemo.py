@@ -11,6 +11,7 @@ import sys
 import time
 import os
 import logging
+import subprocess
 from cbcommslib import CbAdaptor
 from cbconfig import *
 from twisted.internet import threads
@@ -85,39 +86,43 @@ class Adaptor(CbAdaptor):
             return "off"
 
     def onAppCommand(self, message):
-        # If at first it doesn't succeed, try again.
-        for i in range(2):
-            if message["data"] == "on":
-                self.switch.on()
-                state = self.onOff(self.switch.get_state())
-                if state == "on":
-                    break
-            elif message["data"] == "off":
-                self.switch.off()
-                state = self.onOff(self.switch.get_state())
-                if state == "off":
-                    break
-        if state != self.previousState:
-            self.reportState(state)
-            self.previousState = state
+        if self.configured:
+            state = self.previousState
+            # If at first it doesn't succeed, try again.
+            for i in range(2):
+                if message["data"] == "on" and self.previousState == "off":
+                    output = subprocess.check_output(["wemo", "switch", self.switchName, "on"])
+                    output = subprocess.check_output(["wemo", "switch", self.switchName, "status"])
+                    output = output[:-1]
+                    state = self.onOff(output)
+                    if state == "on":
+                        break
+                elif message["data"] == "off" and self.previousState == "on":
+                    output = subprocess.check_output(["wemo", "switch", self.switchName, "off"])
+                    output = subprocess.check_output(["wemo", "switch", self.switchName, "status"])
+                    output = output[:-1]
+                    state = self.onOff(output)
+                    if state == "off":
+                        break
+            if state != self.previousState:
+                self.reportState(state)
+                self.previousState = state
+        else:
+            logging.debug("%s %s %s onAppCommand before init complete", ModuleName, self.id, self.friendly_name)
 
     def onConfigureMessage(self, config):
         if not self.configured:
             logging.info("%s %s %s Init", ModuleName, self.id, self.friendly_name)
-            try:
-                self.env = Environment()
-                logging.info("%s %s self.env = %s", ModuleName, self.id, str(self.env))
-                status = str(self.env.start())
-                logging.info("%s %s status = %s", ModuleName, self.id, status)
-                self.devices = self.env.list_switches()
-                logging.info("%s %s %s devices: %s", ModuleName, self.id, self.friendly_name, self.devices)
-                self.switch = self.env.get_switch(self.devices[0])
-                state = self.switch.get_state()
-                logging.info("%s %s %s Switch state on init: %s", ModuleName, self.id, self.friendly_name, state)
-                self.configured = True
-            except:
-                logging.warning("%s %s %s Unable to communicate with WeMo switch", ModuleName, self.id, self.friendly_name)
-                self.setState("error")
+            output = subprocess.check_output(["wemo", "list"])
+            self.switchName = output.split(' ')[1]
+            if self.switchName.endswith('\n'):
+                self.switchName = self.switchName[:-1]
+            output = subprocess.check_output(["wemo", "switch", self.switchName, "status"])
+            output = output[:-1]
+            switchState = self.onOff(output)
+            logging.info("%s %s %s Switch state on init: %s", ModuleName, self.id, self.friendly_name, switchState)
+            self.previousState = switchState
+            self.configured = True
 
 if __name__ == '__main__':
     adaptor = Adaptor(sys.argv)
