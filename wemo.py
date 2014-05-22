@@ -6,6 +6,7 @@
 # Written by Peter Claydon
 #
 ModuleName = "WeMo"
+WEMO = "/usr/local/bin/wemo"
 
 import sys
 import time
@@ -91,15 +92,15 @@ class Adaptor(CbAdaptor):
             # If at first it doesn't succeed, try again.
             for i in range(2):
                 if message["data"] == "on" and self.previousState == "off":
-                    output = subprocess.check_output(["wemo", "switch", self.switchName, "on"])
-                    output = subprocess.check_output(["wemo", "switch", self.switchName, "status"])
+                    output = subprocess.check_output([WEMO, "switch", self.switchName, "on"])
+                    output = subprocess.check_output([WEMO, "switch", self.switchName, "status"])
                     output = output[:-1]
                     state = self.onOff(output)
                     if state == "on":
                         break
                 elif message["data"] == "off" and self.previousState == "on":
-                    output = subprocess.check_output(["wemo", "switch", self.switchName, "off"])
-                    output = subprocess.check_output(["wemo", "switch", self.switchName, "status"])
+                    output = subprocess.check_output([WEMO, "switch", self.switchName, "off"])
+                    output = subprocess.check_output([WEMO, "switch", self.switchName, "status"])
                     output = output[:-1]
                     state = self.onOff(output)
                     if state == "off":
@@ -113,11 +114,11 @@ class Adaptor(CbAdaptor):
     def onConfigureMessage(self, config):
         if not self.configured:
             logging.info("%s %s %s Init", ModuleName, self.id, self.friendly_name)
-            output = subprocess.check_output(["wemo", "list"])
+            output = subprocess.check_output([WEMO, "list"])
             self.switchName = output.split(' ')[1]
             if self.switchName.endswith('\n'):
                 self.switchName = self.switchName[:-1]
-            output = subprocess.check_output(["wemo", "switch", self.switchName, "status"])
+            output = subprocess.check_output([WEMO, "switch", self.switchName, "status"])
             output = output[:-1]
             switchState = self.onOff(output)
             logging.info("%s %s %s Switch state on init: %s", ModuleName, self.id, self.friendly_name, switchState)
