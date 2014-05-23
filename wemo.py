@@ -114,16 +114,20 @@ class Adaptor(CbAdaptor):
     def onConfigureMessage(self, config):
         if not self.configured:
             logging.info("%s %s %s Init", ModuleName, self.id, self.friendly_name)
-            output = subprocess.check_output([WEMO, "list"])
-            self.switchName = output.split(' ')[1]
-            if self.switchName.endswith('\n'):
-                self.switchName = self.switchName[:-1]
-            output = subprocess.check_output([WEMO, "switch", self.switchName, "status"])
-            output = output[:-1]
-            switchState = self.onOff(output)
-            logging.info("%s %s %s Switch state on init: %s", ModuleName, self.id, self.friendly_name, switchState)
-            self.previousState = switchState
-            self.configured = True
+            try:
+                output = subprocess.check_output([WEMO, "clear"])
+                output = subprocess.check_output([WEMO, "list"])
+                self.switchName = output.split(' ')[1]
+                if self.switchName.endswith('\n'):
+                    self.switchName = self.switchName[:-1]
+                output = subprocess.check_output([WEMO, "switch", self.switchName, "status"])
+                output = output[:-1]
+                switchState = self.onOff(output)
+                logging.info("%s %s %s Switch state on init: %s", ModuleName, self.id, self.friendly_name, switchState)
+                self.previousState = switchState
+                self.configured = True
+            except:
+                logging.warning("%s %s %s Could not init switch", ModuleName, self.id, self.friendly_name)
 
 if __name__ == '__main__':
     adaptor = Adaptor(sys.argv)
